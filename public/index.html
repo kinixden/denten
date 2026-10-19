@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>denten | Jev 画像判断</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="container">
+    <header class="hero">
+      <p class="eyebrow">denten</p>
+      <h1>Jev による画像判断</h1>
+      <p class="lead">
+        画像をアップロードするか、サンプル画像を選ぶと、Jev が画像の内容を判断して結果を表示します。
+      </p>
+    </header>
+
+    <section class="panel">
+      <form id="judgeForm" novalidate>
+        <fieldset class="source-group">
+          <legend>画像の指定方法</legend>
+          <label class="radio-card">
+            <input type="radio" name="source" value="upload" checked>
+            <span>ファイルをアップロード</span>
+          </label>
+          <label class="radio-card">
+            <input type="radio" name="source" value="sample">
+            <span>サンプル画像を使う</span>
+          </label>
+        </fieldset>
+
+        <div id="uploadArea" class="field">
+          <label for="imageInput">画像ファイル（PNG または JPEG、25 MiB 以下）</label>
+          <input id="imageInput" name="image" type="file" accept="image/png,image/jpeg">
+          <p class="hint">
+            各辺 280〜1568 px に収まるようサーバーで自動調整します。
+            WebP、GIF、HEIC、アニメーション画像は利用できません。
+          </p>
+        </div>
+
+        <div id="sampleArea" class="field sample-area" hidden>
+          <p>同梱のサンプル画像を使います。</p>
+          <img id="samplePreview" src="/samples/sample.jpg" alt="サンプル画像" width="320" height="240">
+        </div>
+
+        <div class="actions">
+          <button id="submitButton" type="submit">判断する</button>
+          <span id="status" class="status" role="status" aria-live="polite"></span>
+        </div>
+      </form>
+
+      <div id="errorBox" class="error" role="alert" hidden></div>
+    </section>
+
+    <section id="resultSection" class="panel result" hidden aria-live="polite">
+      <div class="result-header">
+        <h2>判断結果</h2>
+        <p id="imageInfo" class="image-info"></p>
+      </div>
+      <div id="answers" class="answers"></div>
+      <details id="rawDetails" class="raw" hidden>
+        <summary>API の生データを表示</summary>
+        <pre id="rawPre"></pre>
+      </details>
+    </section>
+
+    <footer class="footer">
+      <p>判断は TypeSafe の Jev API を利用しています。認証情報はサーバー側だけで扱います。</p>
+    </footer>
+  </main>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>
