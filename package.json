@@ -1,0 +1,19 @@
+{
+  "name": "denten",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Jev による画像判断ウェブサイト",
+  "scripts": {
+    "start": "node server.js",
+    "generate:sample": "node scripts/generate-sample.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1",
+    "sharp": "^0.33.5"
+  }
+}
