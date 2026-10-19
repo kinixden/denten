@@ -8,7 +8,12 @@ const statusText = document.getElementById('status');
 const errorBox = document.getElementById('errorBox');
 const resultSection = document.getElementById('resultSection');
 const imageInfo = document.getElementById('imageInfo');
-const answers = document.getElementById('answers');
+const topResult = document.getElementById('topResult');
+const topName = document.getElementById('topName');
+const topPercent = document.getElementById('topPercent');
+const candidatesTitle = document.getElementById('candidatesTitle');
+const candidateList = document.getElementById('candidateList');
+const emptyResult = document.getElementById('emptyResult');
 const rawDetails = document.getElementById('rawDetails');
 const rawPre = document.getElementById('rawPre');
 
@@ -30,7 +35,7 @@ function setStatus(message) {
 
 function setLoading(isLoading) {
   submitButton.disabled = isLoading;
-  submitButton.textContent = isLoading ? '判断中…' : '判断する';
+  submitButton.textContent = isLoading ? '判定中…' : '判定する';
 }
 
 function showError(message) {
@@ -57,6 +62,73 @@ function formatBytes(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(2)} MiB`;
 }
 
+function formatPercent(value) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return '不明';
+  }
+
+  return `${number.toFixed(1)}%`;
+}
+
+function renderCandidates(result) {
+  topResult.hidden = false;
+  topName.textContent = result.top?.label ?? '不明';
+  topPercent.textContent = formatPercent(result.top?.percent);
+
+  const candidates = Array.isArray(result.candidates) ? result.candidates : [];
+
+  candidateList.replaceChildren();
+
+  if (candidates.length === 0) {
+    candidatesTitle.hidden = true;
+    emptyResult.hidden = false;
+    emptyResult.textContent = '候補の割合を取得できませんでした。';
+    return;
+  }
+
+  candidatesTitle.hidden = false;
+  emptyResult.hidden = true;
+  emptyResult.textContent = '';
+
+  for (const candidate of candidates) {
+    const item = document.createElement('li');
+    item.className = 'candidate';
+
+    if (candidate.rank === 1) {
+      item.classList.add('is-top');
+    }
+
+    const head = document.createElement('div');
+    head.className = 'candidate-head';
+
+    const label = document.createElement('span');
+    label.className = 'candidate-label';
+    label.textContent = candidate.label ?? '不明';
+
+    const percent = document.createElement('span');
+    percent.className = 'candidate-percent';
+    percent.textContent = formatPercent(candidate.percent);
+
+    head.append(label, percent);
+
+    const bar = document.createElement('div');
+    bar.className = 'candidate-bar';
+    bar.setAttribute('role', 'img');
+    bar.setAttribute('aria-label', `${label.textContent} ${percent.textContent}`);
+
+    const fill = document.createElement('span');
+    fill.className = 'candidate-fill';
+    const width = Math.max(0, Math.min(100, Number(candidate.percent) || 0));
+    fill.style.width = `${width}%`;
+
+    bar.append(fill);
+    item.append(head, bar);
+    candidateList.append(item);
+  }
+}
+
 function renderResult(data) {
   resultSection.hidden = false;
   hideError();
@@ -70,45 +142,25 @@ function renderResult(data) {
   imageInfo.textContent =
     `画像: ${width}×${height} px / ${format} / ${bytes}（${sourceLabel}）`;
 
-  answers.replaceChildren();
+  topResult.hidden = true;
+  topName.textContent = '';
+  topPercent.textContent = '';
+  candidatesTitle.hidden = true;
+  candidateList.replaceChildren();
+  emptyResult.hidden = true;
+  emptyResult.textContent = '';
 
-  if (Array.isArray(data.answers) && data.answers.length > 0) {
-    for (const item of data.answers) {
-      const card = document.createElement('article');
-      card.className = 'answer-card';
-
-      const title = document.createElement('h3');
-      title.textContent = item.title || '質問';
-
-      const headline = document.createElement('p');
-      headline.className = 'answer-headline';
-      headline.textContent = item.display?.headline || '回答を表示できませんでした。';
-
-      card.append(title, headline);
-
-      const details = item.display?.details;
-
-      if (Array.isArray(details) && details.length > 0) {
-        const list = document.createElement('ul');
-        list.className = 'answer-details';
-
-        for (const detail of details) {
-          const listItem = document.createElement('li');
-          listItem.textContent = detail;
-          list.append(listItem);
-        }
-
-        card.append(list);
-      }
-
-      answers.append(card);
-    }
+  if (
+    data.result &&
+    data.result.top &&
+    Array.isArray(data.result.candidates) &&
+    data.result.candidates.length > 0
+  ) {
+    renderCandidates(data.result);
   } else {
-    const empty = document.createElement('p');
-    empty.className = 'empty';
-    empty.textContent =
-      'Jev から解釈できる回答が返りませんでした。下の生データを確認してください。';
-    answers.append(empty);
+    emptyResult.hidden = false;
+    emptyResult.textContent =
+      'Jev から品目の候補と割合を取得できませんでした。下の生データを確認してください。';
   }
 
   if (data.raw) {
@@ -152,7 +204,7 @@ form.addEventListener('submit', async (event) => {
   }
 
   setLoading(true);
-  setStatus('Jev が画像を判断しています…');
+  setStatus('Jev が写真の品目を判定しています…');
 
   try {
     const response = await fetch('/api/judge', {
@@ -170,12 +222,12 @@ form.addEventListener('submit', async (event) => {
 
     if (!response.ok || !data.ok) {
       throw new Error(
-        data.error || `判断に失敗しました（HTTP ${response.status}）。`
+        data.error || `判定に失敗しました（HTTP ${response.status}）。`
       );
     }
 
     renderResult(data);
-    setStatus('判断が完了しました。');
+    setStatus('判定が完了しました。');
   } catch (error) {
     showError(
       error instanceof Error ? error.message : '通信に失敗しました。'

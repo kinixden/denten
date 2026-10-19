@@ -16,6 +16,7 @@ const PORT = 3000;
 const API_URL = 'https://api.typesafe.ai/v1/systemone';
 const MODEL = 'jev-latest';
 const API_IMAGE_PART = 'photo';
+const QUESTION_ID = 'item';
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 16 * 1024 * 1024;
@@ -34,53 +35,49 @@ class HttpError extends Error {
   }
 }
 
+const ITEM_CRITERIA = {
+  'ニンジン': 'オレンジ色の細長い根菜。青々とした葉が付くことが多い。',
+  '大根': '白く太い根菜。緑色の葉が付くことが多い。',
+  'カブ': '白い小さめの根菜。丸い形や長い形があり、葉が付く。',
+  'ゴボウ': '茶色く細長い根菜。土の色に近く、長い棒状。',
+  'レンコン': '茶色の穴が並ぶ断面を持つ根菜。節のある筒状。',
+  'ジャガイモ': '茶色や薄い黄色のいも。丸みのある不定形。',
+  'サツマイモ': '赤紫や茶色の皮の細長いいも。中は黄色や橙色。',
+  'サトイモ': '茶色の皮と白い中身を持つ、丸みのあるいも。',
+  'タマネギ': '紫や茶色の薄皮に包まれた球状の野菜。',
+  'ネギ': '白い根元と緑の長い葉を持つ細長い野菜。',
+  'キャベツ': '緑色の葉が重なった球状の野菜。',
+  'レタス': '薄い緑色の葉が重なった葉物野菜。',
+  'ホウレン草': '濃い緑色の葉と茎を持つ葉物野菜。',
+  'ブロッコリー': '緑色のつぼみが集まったこんもりした野菜。',
+  'トマト': '赤や橙色の丸い果菜。ヘタが付くことが多い。',
+  'ナス': '紫や黒紫色の光沢がある細長い果菜。',
+  'キュウリ': '緑色で細長く、いぼのある果菜。',
+  'ピーマン': '緑色で光沢のある空洞の果菜。',
+  'カボチャ': '橙や濃い緑色の硬い皮を持つ大型の果菜。',
+  'オクラ': '緑色で細長く、先が尖った果菜。',
+  'アスパラガス': '緑色の細長い茎と先端の芽を持つ野菜。',
+  'トウモロコシ': '黄色い粒が並ぶ穂と緑の皮を持つ作物。',
+  'シイタケ': '茶色い傘と白い軸を持つきのこ。',
+  'リンゴ': '赤や黄緑色の丸い果物。',
+  'バナナ': '黄色く細長い果物。',
+  'レモン': '黄色く楕円形の柑橘系果物。',
+  'その他の野菜': '上記の野菜に当てはまらない野菜。',
+  'その他の果物': '上記の果物に当てはまらない果物。',
+  '食品以外': '食べ物ではない物、または食品と判断できない物。',
+  '判別不能': '画像が暗い、ぼやけているなど、品目を判別できない。'
+};
+
 const QUESTION_DEFS = [
   {
-    id: 'subject',
-    title: 'この画像は主に何を写した写真ですか？',
+    id: QUESTION_ID,
+    title: '写真に写っている主な品目は何ですか？',
     type: 'choice',
     body: {
       type: 'choice',
-      instructions: '画像全体を見て、最も当てはまるものを1つ選んでください。',
-      criteria: {
-        '人': '人物、顔、体、集団などが主な被写体です。',
-        '動物': '犬、猫、鳥、野生動物などが主な被写体です。',
-        '風景': '山、海、空、森、街並みなど自然や景色が主な被写体です。',
-        '食べ物': '料理、飲み物、食材などが主な被写体です。',
-        '建物・室内': '建物、部屋、家具、設備などが主な被写体です。',
-        'その他': '上記のどれにも強く当てはまりません。'
-      }
-    }
-  },
-  {
-    id: 'outdoor',
-    title: '屋外で撮影された写真ですか？',
-    type: 'noul',
-    body: {
-      type: 'noul',
-      instructions: '画像に写っている場所が屋外か、屋内かを判断してください。',
-      criteria: {
-        true: '空、自然光、屋外の風景や建物の外観が見えます。',
-        false: '室内、壁、天井、人工照明などが見えます。'
-      }
-    }
-  },
-  {
-    id: 'brightness',
-    title: 'この画像の明るさはどのくらいですか？',
-    type: 'score',
-    body: {
-      type: 'score',
-      instructions: '画像全体の明るさを、暗い順に並んだ尺度で評価してください。',
-      criteria: [
-        '非常に暗い',
-        '暗い',
-        'やや暗い',
-        '普通',
-        'やや明るい',
-        '明るい',
-        '非常に明るい'
-      ]
+      instructions:
+        '写真全体を見て、最も目立つ品目を1つ選んでください。複数写っている場合は、主なものを選んでください。',
+      criteria: ITEM_CRITERIA
     }
   }
 ];
@@ -121,23 +118,21 @@ function hasPngActl(buffer) {
 }
 
 function buildApiRequest(ref) {
-  const questions = {};
-
-  for (const question of QUESTION_DEFS) {
-    questions[question.id] = question.body;
-  }
+  const question = QUESTION_DEFS[0];
 
   return {
     model: MODEL,
     state: {
       [API_IMAGE_PART]: ref
     },
-    questions,
     assets: {
       [ref]: {
         type: 'image',
         part: API_IMAGE_PART
       }
+    },
+    questions: {
+      [question.id]: question.body
     }
   };
 }
@@ -314,7 +309,7 @@ async function callJev(image, ref) {
   if (!apiKey) {
     throw new HttpError(
       500,
-      'サーバーに判断 API の認証情報が設定されていません。管理者に連絡してください。'
+      'サーバーに判定 API の認証情報が設定されていません。管理者に連絡してください。'
     );
   }
 
@@ -386,186 +381,94 @@ async function callJev(image, ref) {
   return data;
 }
 
-function formatPercent(value) {
+function clampProbability(value) {
   const number = Number(value);
 
-  if (!Number.isFinite(number)) return '不明';
+  if (!Number.isFinite(number)) return null;
 
-  return `${Math.round(number * 1000) / 10}%`;
+  return Math.max(0, Math.min(1, number));
 }
 
-function getLegendEntries(legend) {
-  if (!legend || typeof legend !== 'object' || Array.isArray(legend)) {
-    return [];
-  }
+function toPercent(probability) {
+  const clamped = clampProbability(probability);
 
-  return Object.entries(legend)
-    .map(([key, label]) => ({
-      level: Number(key),
-      label: String(label)
-    }))
-    .filter((entry) => Number.isFinite(entry.level));
+  if (clamped == null) return null;
+
+  return Math.round(clamped * 1000) / 10;
 }
 
-function labelForScore(score, legend, fallbackCriteria) {
-  let entries = getLegendEntries(legend);
+function normalizeItemResult(data) {
+  const answerMap =
+    data &&
+    typeof data === 'object' &&
+    data.answers &&
+    typeof data.answers === 'object' &&
+    !Array.isArray(data.answers)
+      ? data.answers
+      : null;
 
-  if (entries.length === 0 && Array.isArray(fallbackCriteria)) {
-    entries = fallbackCriteria.map((label, index) => ({
-      level: index,
-      label: String(label)
-    }));
-  }
-
-  if (entries.length === 0) return null;
-
-  let nearest = entries[0];
-
-  for (const entry of entries) {
-    if (
-      Math.abs(entry.level - score) <
-      Math.abs(nearest.level - score)
-    ) {
-      nearest = entry;
-    }
-  }
-
-  return nearest.label;
-}
-
-function probabilityLabel(key, legend) {
-  if (legend && typeof legend === 'object' && !Array.isArray(legend)) {
-    const value = legend[key];
-
-    if (value != null) return String(value);
-  }
-
-  return String(key);
-}
-
-function formatAnswer(def, answer) {
-  const details = [];
+  const answer =
+    answerMap && typeof answerMap === 'object' ? answerMap[QUESTION_ID] : null;
 
   if (!answer || typeof answer !== 'object') {
-    return {
-      headline: '回答を取得できませんでした。',
-      details
-    };
+    return null;
   }
 
-  if (typeof answer.confidence === 'number') {
-    details.push(`信頼度: ${formatPercent(answer.confidence)}`);
-  }
+  let candidates = [];
 
   if (
     answer.probabilities &&
     typeof answer.probabilities === 'object' &&
     !Array.isArray(answer.probabilities)
   ) {
-    const entries = Object.entries(answer.probabilities)
-      .map(([key, value]) => [key, Number(value)])
-      .filter(([, value]) => Number.isFinite(value))
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
+    candidates = Object.entries(answer.probabilities)
+      .map(([label, value]) => {
+        const probability = clampProbability(value);
 
-    if (entries.length > 0) {
-      details.push(
-        `確率: ${entries
-          .map(
-            ([key, value]) =>
-              `${probabilityLabel(key, answer.legend)} ${formatPercent(value)}`
-          )
-          .join(' / ')}`
-      );
-    }
+        return probability == null
+          ? null
+          : { label: String(label), probability };
+      })
+      .filter(Boolean);
   }
 
-  if (def.type === 'noul') {
-    const probability = Number(answer.noul);
+  if (candidates.length === 0 && answer.choice != null) {
+    const probability = clampProbability(answer.confidence);
 
-    if (!Number.isFinite(probability)) {
-      return {
-        headline: '回答形式を解釈できませんでした。',
-        details
-      };
-    }
-
-    const yes = probability >= 0.5;
-    const confidence = yes ? probability : 1 - probability;
-
-    return {
-      headline: `${yes ? 'はい' : 'いいえ'}（確率 ${formatPercent(confidence)}）`,
-      details
-    };
+    candidates.push({
+      label: String(answer.choice),
+      probability: probability == null ? 1 : probability
+    });
   }
 
-  if (def.type === 'choice') {
-    const choice = answer.choice == null ? '不明' : String(answer.choice);
-    const probability = Number(answer.probabilities?.[answer.choice]);
-    const suffix = Number.isFinite(probability)
-      ? `（確率 ${formatPercent(probability)}）`
-      : '';
-
-    return {
-      headline: `選択: ${choice}${suffix}`,
-      details
-    };
+  if (candidates.length === 0) {
+    return null;
   }
 
-  if (def.type === 'score') {
-    const score = Number(answer.score);
-
-    if (!Number.isFinite(score)) {
-      return {
-        headline: '回答形式を解釈できませんでした。',
-        details
-      };
+  candidates.sort((a, b) => {
+    if (b.probability !== a.probability) {
+      return b.probability - a.probability;
     }
 
-    const label = labelForScore(score, answer.legend, def.body?.criteria);
+    return a.label.localeCompare(b.label, 'ja');
+  });
 
-    return {
-      headline: label ? `スコア: ${score}（${label}）` : `スコア: ${score}`,
-      details
-    };
-  }
+  const top = candidates[0];
 
   return {
-    headline: '回答を表示できませんでした。',
-    details
+    top: {
+      label: top.label,
+      probability: top.probability,
+      percent: toPercent(top.probability)
+    },
+    candidates: candidates.map((candidate, index) => ({
+      rank: index + 1,
+      label: candidate.label,
+      probability: candidate.probability,
+      percent: toPercent(candidate.probability)
+    })),
+    confidence: clampProbability(answer.confidence)
   };
-}
-
-function normalizeAnswers(data) {
-  if (!data || typeof data !== 'object') {
-    return null;
-  }
-
-  const answerMap = data.answers;
-
-  if (!answerMap || typeof answerMap !== 'object' || Array.isArray(answerMap)) {
-    return null;
-  }
-
-  const hasKnownAnswer = QUESTION_DEFS.some(
-    (def) => answerMap[def.id] != null
-  );
-
-  if (!hasKnownAnswer) {
-    return null;
-  }
-
-  return QUESTION_DEFS.map((def) => {
-    const answer = answerMap[def.id] ?? null;
-
-    return {
-      id: def.id,
-      title: def.title,
-      type: def.type,
-      answer,
-      display: formatAnswer(def, answer)
-    };
-  });
 }
 
 app.post('/api/judge', upload.single('image'), async (req, res, next) => {
@@ -596,7 +499,7 @@ app.post('/api/judge', upload.single('image'), async (req, res, next) => {
     const image = await normalizeImage(inputBuffer);
     const ref = crypto.randomUUID();
     const data = await callJev(image, ref);
-    const answers = normalizeAnswers(data);
+    const result = normalizeItemResult(data);
 
     res.json({
       ok: true,
@@ -608,8 +511,8 @@ app.post('/api/judge', upload.single('image'), async (req, res, next) => {
         bytes: image.bytes,
         source
       },
-      answers,
-      raw: answers ? undefined : data
+      result,
+      raw: result ? undefined : data
     });
   } catch (error) {
     next(error);

@@ -3,16 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>denten | Jev 画像判断</title>
+  <title>denten | 写真の品目判定</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <main class="container">
     <header class="hero">
       <p class="eyebrow">denten</p>
-      <h1>Jev による画像判断</h1>
+      <h1>写真の品目判定</h1>
       <p class="lead">
-        画像をアップロードするか、サンプル画像を選ぶと、Jev が画像の内容を判断して結果を表示します。
+        写真を読み込むと、写っている品目の候補と割合（%）を、可能性が高い順に表示します。
       </p>
     </header>
 
@@ -40,12 +40,12 @@
         </div>
 
         <div id="sampleArea" class="field sample-area" hidden>
-          <p>同梱のサンプル画像を使います。</p>
-          <img id="samplePreview" src="/samples/sample.jpg" alt="サンプル画像" width="320" height="240">
+          <p>同梱のニンジンのサンプル画像を使います。</p>
+          <img id="samplePreview" src="/samples/sample.jpg" alt="ニンジンのサンプル画像" width="320" height="240">
         </div>
 
         <div class="actions">
-          <button id="submitButton" type="submit">判断する</button>
+          <button id="submitButton" type="submit">判定する</button>
           <span id="status" class="status" role="status" aria-live="polite"></span>
         </div>
       </form>
@@ -55,10 +55,22 @@
 
     <section id="resultSection" class="panel result" hidden aria-live="polite">
       <div class="result-header">
-        <h2>判断結果</h2>
+        <h2>判定結果</h2>
         <p id="imageInfo" class="image-info"></p>
       </div>
-      <div id="answers" class="answers"></div>
+
+      <div id="topResult" class="top-result" hidden>
+        <p class="top-label">最も可能性が高い品目</p>
+        <p class="top-value">
+          <span id="topName"></span>
+          <span id="topPercent" class="top-percent"></span>
+        </p>
+      </div>
+
+      <h3 id="candidatesTitle" class="candidates-title" hidden>候補と割合</h3>
+      <ul id="candidateList" class="candidate-list"></ul>
+      <p id="emptyResult" class="empty" hidden></p>
+
       <details id="rawDetails" class="raw" hidden>
         <summary>API の生データを表示</summary>
         <pre id="rawPre"></pre>
@@ -66,7 +78,7 @@
     </section>
 
     <footer class="footer">
-      <p>判断は TypeSafe の Jev API を利用しています。認証情報はサーバー側だけで扱います。</p>
+      <p>判定は TypeSafe の Jev API を利用しています。認証情報はサーバー側だけで扱います。</p>
     </footer>
   </main>
 
